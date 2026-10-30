@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Tool gạt địa chỉ DIP switch cho đầu báo cháy Horing và các hãng khác. TikTok @haidangfire">
+<title>Tool gạt địa chỉ Horing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Be+Vietnam+Pro:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one narrow column, phone-first; the red DIP switch block is the centerpiece */
+:root{
+  --bg:#eef0f2; --panel:#ffffff; --fg:#1d2329; --muted:#5b6670; --line:#d5dade;
+  --dip:#c8261d; --dip-deep:#9e1c15; --slot:#7a1510; --knob:#fbfbf8; --on:#1f8a4c;
+  --accent:#c8261d;
+  --f-display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --f-body:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#14181c; --panel:#1d2227; --fg:#e8ecef; --muted:#9aa5ae; --line:#2f363d;
+  --dip:#b8241c; --dip-deep:#8e1a13; --slot:#5e0f0b; --knob:#f1f1ec; --on:#3fc27a; --accent:#ff6b5e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14181c; --panel:#1d2227; --fg:#e8ecef; --muted:#9aa5ae; --line:#2f363d;
+  --dip:#b8241c; --dip-deep:#8e1a13; --slot:#5e0f0b; --knob:#f1f1ec; --on:#3fc27a; --accent:#ff6b5e; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 32px}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+
+header h1{font-family:var(--f-display);font-weight:700;font-size:clamp(28px,8vw,40px);line-height:1.02;margin:0;text-wrap:balance;letter-spacing:.01em;text-transform:uppercase}
+header h1 span{color:var(--accent)}
+header p{margin:8px 0 0;color:var(--muted);font-size:14px}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+
+/* Address readout */
+.readout{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center}
+.step{width:52px;height:52px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font-size:26px;font-weight:600;cursor:pointer}
+.step:active{transform:scale(.96)}
+.addr{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.addr label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+#addr{width:100%;text-align:center;font-family:var(--f-mono);font-weight:600;font-size:44px;border:0;background:transparent;color:var(--fg);padding:0;font-variant-numeric:tabular-nums}
+#addr:focus{outline:none}
+.addr:focus-within{outline:2px solid var(--accent);outline-offset:4px;border-radius:8px}
+.binary{font-family:var(--f-mono);font-size:13px;color:var(--muted);letter-spacing:.08em}
+.err{color:var(--accent);font-size:13px;text-align:center;min-height:1.3em;margin-top:6px}
+
+/* DIP switch */
+.dip{background:linear-gradient(180deg,var(--dip),var(--dip-deep));border-radius:12px;padding:12px 10px 10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 6px 18px rgba(120,20,15,.25);overflow-x:auto}
+.dip-top{display:flex;justify-content:space-between;color:#fff;font-family:var(--f-display);font-weight:700;font-size:15px;letter-spacing:.1em;padding:0 4px 8px}
+.row{display:grid;grid-template-columns:repeat(var(--n),minmax(28px,1fr));gap:6px}
+.sw{display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:0;padding:0;cursor:pointer;color:#fff;font:inherit}
+.sw .num{font-family:var(--f-mono);font-weight:600;font-size:15px}
+.slot{width:100%;max-width:44px;height:84px;background:var(--slot);border-radius:6px;position:relative;box-shadow:inset 0 2px 5px rgba(0,0,0,.45)}
+.knob{position:absolute;left:4px;right:4px;height:38px;bottom:4px;background:var(--knob);border-radius:4px;box-shadow:0 2px 0 rgba(0,0,0,.25);transition:bottom .15s ease}
+.sw[aria-pressed="true"] .knob{bottom:42px}
+.sw[aria-pressed="true"] .slot{box-shadow:inset 0 2px 5px rgba(0,0,0,.45),0 0 0 2px #fff}
+.sw .w{font-family:var(--f-mono);font-size:12px;opacity:.85;font-variant-numeric:tabular-nums}
+.sw:focus-visible{outline:2px solid #fff;outline-offset:3px;border-radius:6px}
+.legend{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:10px}
+
+/* Settings */
+.settings{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.settings .full{grid-column:1/-1}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>span{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{flex:1;padding:10px 6px;border:0;background:transparent;color:var(--fg);font:500 14px var(--f-body);cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--panel)}
+.seg button:focus-visible,.step:focus-visible,.reset:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.reset{padding:10px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--fg);font:500 14px var(--f-body);cursor:pointer}
+
+.hint{font-size:13px;color:var(--muted);margin:0}
+
+.tiktok{display:flex;gap:12px;align-items:center;text-decoration:none;color:var(--fg)}
+.tiktok .ic{flex:none;width:44px;height:44px;border-radius:12px;background:var(--fg);display:grid;place-items:center}
+.tiktok .ic svg{width:22px;height:22px;fill:var(--panel)}
+.tiktok b{display:block;font-size:15px}
+.tiktok small{color:var(--muted);font-size:13px}
+.tiktok .go{margin-left:auto;font-weight:600;color:var(--accent);white-space:nowrap}
+@media (prefers-reduced-motion:reduce){.knob{transition:none}}
+@media (max-width:380px){.settings{grid-template-columns:1fr}}
+
+.qr{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.qr p{margin:0;color:var(--muted);font-size:14px}
+#qrbox{background:#fff;padding:10px;border-radius:10px}
+#qrbox img,#qrbox canvas{display:block;width:200px;height:200px}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <a class="card tiktok" href="https://www.tiktok.com/@haidangfire" target="_blank" rel="noopener">
+    <span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.6 2h-3.3v13.2a2.9 2.9 0 1 1-2.9-2.9c.3 0 .6 0 .9.1V9a6.3 6.3 0 1 0 5.3 6.2V8.6a7.9 7.9 0 0 0 4.4 1.4V6.7a4.5 4.5 0 0 1-4.4-4.7Z"/></svg></span>
+    <span><b>Theo dõi TikTok @haidangfire</b><small>Để được hỗ trợ kỹ thuật miễn phí</small></span>
+    <span class="go">Mở ↗</span>
+  </a>
+  <header>
+    <h1>Tool gạt địa chỉ <span>Horing</span> và các hãng báo cháy khác</h1>
+    <p>Nhập số địa chỉ hoặc chạm vào từng công tắc DIP để quy đổi nhị phân.</p>
+  </header>
+
+  <section class="card">
+    <div class="readout">
+      <button class="step" id="minus" aria-label="Giảm 1">−</button>
+      <div class="addr">
+        <label for="addr">Địa chỉ</label>
+        <input id="addr" type="number" inputmode="numeric" min="0" value="37">
+      </div>
+      <button class="step" id="plus" aria-label="Tăng 1">+</button>
+    </div>
+    <div class="err" id="err" role="status"></div>
+  </section>
+
+  <section>
+    <div class="dip">
+      <div class="dip-top"><span>ON ▲</span><span id="dirLabel"></span></div>
+      <div class="row" id="row"></div>
+    </div>
+  </section>
+
+  <section class="card settings">
+    <div class="field full">
+      <span>Chiều đọc bit</span>
+      <div class="seg" id="dirSeg">
+        <button id="dirLR" data-dir="lr">Trái → Phải</button>
+        <button id="dirRL" data-dir="rl">Phải → Trái</button>
+      </div>
+    </div>
+  </section>
+
+
+  <section class="card qr">
+    <p>Quét mã QR để chia sẻ trang này</p>
+    <div id="qrbox"></div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(function(){
+  var st={n:8,dir:"lr",val:37};
+  try{var s=JSON.parse(localStorage.getItem("dipcfg")||"null");if(s){st.dir=s.dir||"lr";}}catch(e){}
+  var row=document.getElementById("row"),addr=document.getElementById("addr"),err=document.getElementById("err");
+  function max(){return Math.pow(2,st.n)-1}
+  function save(){try{localStorage.setItem("dipcfg",JSON.stringify({dir:st.dir}))}catch(e){}}
+  function weight(i){return st.dir==="lr"?Math.pow(2,i):Math.pow(2,st.n-1-i)}
+  function build(){
+    row.style.setProperty("--n",st.n);row.innerHTML="";
+    for(var i=0;i<st.n;i++){
+      var b=document.createElement("button");b.className="sw";b.id="sw"+(i+1);b.dataset.i=i;
+      b.innerHTML='<span class="num">'+(i+1)+'</span><span class="slot"><span class="knob"></span></span><span class="w">'+weight(i)+'</span>';
+      b.addEventListener("click",function(){st.val^=weight(+this.dataset.i);render(true)});
+      row.appendChild(b);
+    }
+  }
+  function render(fromSw){
+    if(st.val>max())st.val=max();
+    if(fromSw||document.activeElement!==addr)addr.value=st.val;
+    addr.max=max();
+    var bits=[];
+    for(var i=0;i<st.n;i++){var on=(st.val&weight(i))!==0;var el=row.children[i];el.setAttribute("aria-pressed",on);el.setAttribute("aria-label","Công tắc "+(i+1)+", giá trị "+weight(i)+", "+(on?"ON":"OFF"));bits.push(on?"1":"0")}
+    document.getElementById("dirLabel").textContent=st.dir==="lr"?"1 → "+st.n:st.n+" ← 1";
+    document.querySelectorAll("#dirSeg button").forEach(function(b){b.setAttribute("aria-pressed",b.dataset.dir===st.dir)});
+    err.textContent="";
+  }
+  addr.addEventListener("input",function(){
+    if(addr.value===""){st.val=0;render(false);return}
+    var v=parseInt(addr.value,10);
+    if(isNaN(v)||v<0){err.textContent="Chỉ nhập số nguyên từ 0";return}
+    if(v>max()){st.val=max();render(false);err.textContent="8 công tắc chỉ đặt được tối đa 255";return}
+    st.val=v;render(false);
+  });
+  addr.addEventListener("blur",function(){addr.value=st.val});
+  document.getElementById("plus").onclick=function(){st.val=Math.min(max(),st.val+1);render(true)};
+  document.getElementById("minus").onclick=function(){st.val=Math.max(0,st.val-1);render(true)};
+  document.querySelectorAll("#dirSeg button").forEach(function(b){b.onclick=function(){st.dir=b.dataset.dir;save();build();render(true)}});
+  build();render(true);
+  try{new QRCode(document.getElementById("qrbox"),{text:location.href,width:200,height:200,colorDark:"#1d2329",colorLight:"#ffffff"})}catch(e){document.querySelector(".qr").hidden=true}
+})();
+</script>
+
+</body>
+</html>
